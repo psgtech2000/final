@@ -1,0 +1,92 @@
+#pip install datasets
+
+from datasets import load_dataset
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import Trainer, TrainingArguments
+
+import torch
+import os
+import numpy as np
+os.environ["WANDB_DISABLED"] = "true"
+
+# Load IMDb dataset
+dataset = load_dataset("imdb")
+
+tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
+def tokenize_function(example):
+    return tokenizer(example["text"], truncation=True, padding="max_length", max_length=512)
+
+tokenized_datasets = dataset.map(tokenize_function, batched=True)
+
+
+tokenized_datasets.set_format("torch")
+
+# accuracy = evaluate.load("accuracy")
+
+def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=-1)
+    return {"accuracy": (predictions == labels).mean()}
+
+
+model = DistilBertForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
+
+training_args = TrainingArguments(
+    output_dir="./imdb_distilbert",
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=8,
+    num_train_epochs=0.5,
+    weight_decay=0.01,
+)
+
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_datasets["train"].shuffle(seed=42).select(range(500)),  # smaller set for quick test
+    eval_dataset=tokenized_datasets["test"].select(range(100)),
+    tokenizer=tokenizer,
+    compute_metrics=compute_metrics
+)
+
+trainer.train()
+
+# Save the fine-tuned model
+trainer.save_model("./results")  # Save for later use
+
+# Evaluate
+results = trainer.evaluate()
+print("Evaluation results:", results)
+
+
+# Load your trained model and tokenizer
+# model_path = "distilbert-base-uncased"  # or wherever you saved it
+model_path = "./results"
+tokenizer = DistilBertTokenizer.from_pretrained(model_path)
+model = DistilBertForSequenceClassification.from_pretrained(model_path)
+
+# Your input sentence
+sentence = "The movie was absolutely wonderful and inspiring!"
+# sentence = "This was the worst film I've ever seen."
+# sentence="great movie"
+
+# Tokenize input
+inputs = tokenizer(sentence, return_tensors="pt", truncation=True, padding=True, max_length=512)
+
+# Get prediction
+with torch.no_grad():
+    outputs = model(**inputs)
+    logits = outputs.logits
+    probs = torch.nn.functional.softmax(logits, dim=-1)
+
+    # Get predicted label (0 = negative, 1 = positive)
+    predicted_class = torch.argmax(probs, dim=-1).item()
+
+
+# Map label to sentiment
+label_map = {0: "Negative", 1: "Positive"}
+print(f"Sentiment: {label_map[predicted_class]}")
+
+
