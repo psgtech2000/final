@@ -1,0 +1,113 @@
+import math
+import pprint
+from collections import defaultdict
+from prettytable import PrettyTable
+
+# === PCFG Parsing with Given Probabilities ===
+
+def pcyk_table(sentence, pcfg):
+    n = len(sentence)
+    table = []
+    for _ in range(n):
+        row = []
+        for _ in range(n):
+            row.append(defaultdict(lambda: (-math.inf, None)))
+        table.append(row)
+
+    # Initialize table with terminal productions
+    for i, word in enumerate(sentence):
+        for lhs, rules in pcfg.items():
+            for rhs, prob in rules:
+                if len(rhs) == 1 and rhs[0] == word:
+                    table[i][i][lhs] = (math.log(prob), word)
+
+    # Fill the table for spans > 1
+    for span in range(2, n + 1):
+        for i in range(n - span + 1):
+            j = i + span - 1
+            for k in range(i, j):
+                for lhs, rules in pcfg.items():
+                    for rhs, prob in rules:
+                        if len(rhs) == 2:
+                            B, C = rhs
+                            if B in table[i][k] and C in table[k + 1][j]:
+                                prob_B, _ = table[i][k][B]
+                                prob_C, _ = table[k + 1][j][C]
+                                total_prob = math.log(prob) + prob_B + prob_C
+                                if total_prob > table[i][j][lhs][0]:
+                                    table[i][j][lhs] = (total_prob, (k, B, C))
+    return table
+
+def build_tree(i, j, symbol, table):
+    prob, back = table[i][j].get(symbol, (-math.inf, None))
+    if isinstance(back, str):
+        return [symbol, back]
+    if back is None:
+        return [symbol]
+    k, B, C = back
+    left = build_tree(i, k, B, table)
+    right = build_tree(k + 1, j, C, table)
+    return [symbol, left, right]
+
+def display_viterbi_table(sentence, table):
+    n = len(sentence)
+    pretty_table = []
+    for row in range(n):
+        current_row = []
+        for col in range(n):
+            if col < row:
+                current_row.append("")
+            else:
+                cell = table[row][col]
+                if not cell:
+                    current_row.append("-")
+                else:
+                    entries = []
+                    for symbol, (prob, back) in sorted(cell.items(), key=lambda x: -x[1][0]):
+                        prob_val = math.exp(prob)
+                        if isinstance(back, str):
+                            entries.append(f"{symbol}({prob_val:.2f})")
+                        else:
+                            entries.append(f"{symbol}({prob_val:.6f})")
+                    current_row.append("\n".join(entries))
+        pretty_table.append(current_row)
+    headers = [""] + sentence
+    cyk = PrettyTable()
+    cyk.field_names = headers
+    for i, row in enumerate(pretty_table):
+        cyk.add_row([sentence[i]] + row)
+    print(cyk)
+
+def parse_sentence_with_given_pcfg(sentence, pcfg):
+    print("PCFG (Given):")
+    for lhs, rules in pcfg.items():
+        for rhs, prob in rules:
+            print(f"{lhs} -> {' '.join(rhs)} [{prob:.2f}]")
+    
+    n = len(sentence)
+    table = pcyk_table(sentence, pcfg)
+
+    print("\nMost Probable Parse Tree")
+    if 'S' in table[0][n - 1]:
+        tree = build_tree(0, n - 1, 'S', table)
+        pprint.pprint(tree)
+        print(f"Probability of the parse tree: {math.exp(table[0][n - 1]['S'][0]):.8f}")
+        print("\nViterbi Parsing Table")
+        display_viterbi_table(sentence, table)
+    else:
+        print("No valid parse found.")
+
+# === Example Usage ===
+
+sentence = 'John called Mary from Denver'.split()
+
+pcfg = {
+    'S': [(('NP', 'VP'), 1.0)],
+    'NP': [(('John',), 0.25), (('Mary',), 0.25), (('Denver',), 0.25), (('NP', 'PP'), 0.25)],
+    'VP': [(('V', 'NP'), 0.5), (('VP', 'PP'), 0.5)],
+    'V': [(('called',), 1.0)],
+    'PP': [(('P', 'NP'), 1.0)],
+    'P': [(('from',), 1.0)]
+}
+
+parse_sentence_with_given_pcfg(sentence, pcfg)
