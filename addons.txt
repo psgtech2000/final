@@ -1,0 +1,36 @@
+#print table
+
+!pip install tabulate
+from tabulate import tabulate
+print(tabulate(pretty_table, tablefmt="grid"))
+
+
+#text file inp for mt - seq seq
+
+import pandas as pd
+
+# Read tab-separated text file
+df = pd.read_csv('/content/Machinetranslation.txt', sep='\t', names=['english', 'french'])
+
+# Add <sos> and <eos> tokens to the French sentences
+df['french'] = df['french'].apply(lambda x: '<sos> ' + x + ' <eos>')
+
+# Prepare lists
+input_texts = df['english'].tolist()
+target_texts = df['french'].tolist()
+
+
+#line by line
+input_texts = []
+target_texts = []
+
+with open('/content/Machinetranslation.txt', encoding='utf-8') as f:
+    lines = f.readlines()
+
+# Assuming even lines are English and odd lines are French
+for i in range(0, len(lines), 2):
+    eng = lines[i].strip()
+    fre = lines[i+1].strip()
+    input_texts.append(eng)
+    target_texts.append('<sos> ' + fre + ' <eos>')
+
