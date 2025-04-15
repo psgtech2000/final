@@ -1,0 +1,51 @@
+#PIP (with or without !)
+!pip install transformers datasets torch tensorflow nltk tabulate prettytable
+
+
+#COMMON IMPORTS
+import numpy as np
+import pandas as pd
+import os
+import re
+# Disable WandB logging
+os.environ["WANDB_DISABLED"] = "true"
+
+
+#TEXT SUMMARIZATION
+from datasets import Dataset
+from transformers import T5Tokenizer
+from transformers import T5ForConditionalGeneration, Seq2SeqTrainer, Seq2SeqTrainingArguments
+
+
+#SENTIMENT ANALYSIS
+from transformers import pipeline
+from datasets import load_dataset
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import Trainer, TrainingArguments
+import torch
+
+
+#MACHINE TRANSLATION
+from transformers import MarianMTModel, MarianTokenizer
+from datasets import load_dataset
+from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
+
+
+#MACHINE TRANSLATION (RNN/LSTM)
+import pandas as pd
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, LSTM, Embedding, Dense
+from tensorflow.keras.callbacks import ModelCheckpoint
+
+
+#CYK/PCYK
+from collections import defaultdict
+from nltk.tree import Tree
+from tabulate import tabulate
+import math
+import pprint
+from prettytable import PrettyTable
